@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
-## An Overview of the Data Set
+### An Overview of the Data Set
 
 This data is collected from a marketing campaign from un unspecified company.
 
@@ -36,7 +36,7 @@ ncol(data)
 
 There are 2240 observations and 29 variables in this data set. The number of predictors will be at most 29.
 
-### Types of Variables We Are Working With:
+#### Types of Variables We Are Working With:
 
 **People**
 
@@ -108,13 +108,13 @@ sum(is.na(data))
 
 There are 24 missing data points. Since 24 is relatively small in comparison to the number of total observations in this data set, we can just remove those observations that contain missing data.
 
-## An Overview of Our Research Questions
+### An Overview of Our Research Questions
 
-### Variables we are interested in
+#### Variables we are interested in
 
 We are interested in all of the variables except customer ID.
 
-### Questions we are interested in answering
+#### Questions we are interested in answering
 
 Can we develop tailored marketing strategies by clustering our customers based on demographic, lifestyle, and behavioral data?
 
@@ -123,32 +123,42 @@ Can we develop tailored marketing strategies by clustering our customers based o
 3.  Can we classify customers based on the data we have?
 4.  Can we assign customers to a priority level in our marketing campaign?
 
-### Classification or Regression?
+#### Classification or Regression?
 
 We can answer these questions with a classification approach.
 
-### Especially Useful Predictors
+#### Especially Useful Predictors
 
 We expect that all of the predictors are going to be useful. However these are the ones we think will be especially useful:
 
 Income, number of children in customer's household, and number of days since last purchase.
 
-## Proposed Project Timeline and Group Work
+### Proposed Project Timeline and Group Work
 
 Our group will meet up twice a week to go over individual and group responsibilities. We will divide up the work equally based on interest.
 
+We will be exploring the data ourselves based on the individual problems we are working on.
+
+As for now, these are our individual responsibilities:
+
+Josh - Data cleaning, and question 1 and 2
+
+Katie - Question 2 and 3
+
+Tiffany - Question 4 and developing structure for write up
+
 We plan on having our data set loaded by Sunday (1/23/22).
 
-## Any Questions or Concerns
+### Any Questions or Concerns
 
-### Problems and difficult aspects of the project
+#### Problems and difficult aspects of the project
 
 We anticipate that the following will be difficult:
 
 -   Figuring out which variables to include in our model because we have so many
 -   Tuning the parameters of our model
 
-### Questions
+#### Questions
 
 -   How should we go about choosing predictors?
 -   How do we measure the performance of our model?
