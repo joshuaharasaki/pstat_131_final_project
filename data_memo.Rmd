@@ -1,0 +1,154 @@
+---
+title: "Final Project Data Memo"
+author: "Joshua Harasaki, Tiffany Chiang, Katie Huynh"
+date: "1/20/2022"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## An Overview of the Data Set
+
+This data is collected from a marketing campaign from un unspecified company.
+
+Our data set includes data on customer demographic, amount spent on each type of product, campaign engagement, and where purchases were made.
+
+Here is the link to our data set on kaggle:\
+<https://www.kaggle.com/imakash3011/customer-personality-analysis>
+
+```{r}
+data = read.csv('marketing_campaign.csv', sep = '\t')
+head(data)
+```
+
+```{r}
+count(data)
+```
+
+```{r}
+ncol(data)
+```
+
+There are 2240 observations and 29 variables in this data set. The number of predictors will be at most 29.
+
+### Types of Variables We Are Working With:
+
+**People**
+
+-   ID: Customer's unique identifier
+
+-   Year_Birth: Customer's birth year
+
+-   Education: Customer's education level
+
+-   Marital_Status: Customer's marital status
+
+-   Income: Customer's yearly household income
+
+-   Kidhome: Number of children in customer's household
+
+-   Teenhome: Number of teenagers in customer's household
+
+-   Dt_Customer: Date of customer's enrollment with the company
+
+-   Recency: Number of days since customer's last purchase
+
+-   Complain: 1 if the customer complained in the last 2 years, 0 otherwise
+
+**Products**
+
+-   MntWines: Amount spent on wine in last 2 years
+
+-   MntFruits: Amount spent on fruits in last 2 years
+
+-   MntMeatProducts: Amount spent on meat in last 2 years
+
+-   MntFishProducts: Amount spent on fish in last 2 years
+
+-   MntSweetProducts: Amount spent on sweets in last 2 years
+
+-   MntGoldProds: Amount spent on gold in last 2 years
+
+**Promotion**
+
+-   NumDealsPurchases: Number of purchases made with a discount
+
+-   AcceptedCmp1: 1 if customer accepted the offer in the 1st campaign, 0 otherwise
+
+-   AcceptedCmp2: 1 if customer accepted the offer in the 2nd campaign, 0 otherwise
+
+-   AcceptedCmp3: 1 if customer accepted the offer in the 3rd campaign, 0 otherwise
+
+-   AcceptedCmp4: 1 if customer accepted the offer in the 4th campaign, 0 otherwise
+
+-   AcceptedCmp5: 1 if customer accepted the offer in the 5th campaign, 0 otherwise
+
+-   Response: 1 if customer accepted the offer in the last campaign, 0 otherwise
+
+**Place**
+
+-   NumWebPurchases: Number of purchases made through the company's website
+
+-   NumCatalogPurchases: Number of purchases made using a catalogue
+
+-   NumStorePurchases: Number of purchases made directly in stores
+
+-   NumWebVisitsMonth: Number of visits to company's website in the last month
+
+### Missing Data
+
+```{r}
+sum(is.na(data))
+```
+
+There are 24 missing data points. Since 24 is relatively small in comparison to the number of total observations in this data set, we can just remove those observations that contain missing data.
+
+## An Overview of Our Research Questions
+
+### Variables we are interested in
+
+We are interested in all of the variables except customer ID.
+
+### Questions we are interested in answering
+
+Can we develop tailored marketing strategies by clustering our customers based on demographic, lifestyle, and behavioral data?
+
+1.  Can we identify similarities between customers who purchased the same type of product?
+2.  Does demographic and lifestyle variables impact how customers respond to promotions?
+3.  Can we classify customers based on the data we have?
+4.  Can we assign customers to a priority level in our marketing campaign?
+
+### Classification or Regression?
+
+We can answer these questions with a classification approach.
+
+### Especially Useful Predictors
+
+We expect that all of the predictors are going to be useful. However these are the ones we think will be especially useful:
+
+Income, number of children in customer's household, and number of days since last purchase.
+
+## Proposed Project Timeline and Group Work
+
+Our group will meet up twice a week to go over individual and group responsibilities. We will divide up the work equally based on interest.
+
+We plan on having our data set loaded by Sunday (1/23/22).
+
+## Any Questions or Concerns
+
+### Problems and difficult aspects of the project
+
+We anticipate that the following will be difficult:
+
+-   Figuring out which variables to include in our model because we have so many
+-   Tuning the parameters of our model
+
+### Questions
+
+-   How should we go about choosing predictors?
+-   How do we measure the performance of our model?
