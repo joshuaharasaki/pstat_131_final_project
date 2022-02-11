@@ -1,6 +1,6 @@
 ---
 title: "Data Cleaning"
-author: "Joshua Harasaki"
+author: "Joshua Harasaki your mom"
 date: "2/11/2022"
 output: html_document
 ---
