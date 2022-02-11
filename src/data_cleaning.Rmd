@@ -1,6 +1,6 @@
 ---
 title: "Data Cleaning"
-author: "Joshua Harasaki, Tiff"
+author: "Joshua Harasaki, Tiffany Chiang, Katie Huynh"
 date: "2/11/2022"
 output: html_document
 ---
@@ -24,7 +24,7 @@ summary(cars)
 You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
-plot(pressure)
+
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
