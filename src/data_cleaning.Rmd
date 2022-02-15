@@ -14,19 +14,27 @@ library(tidyr)
 library(ggplot2)
 ```
 
-## R Markdown
+## Loading Data
 
 ```{r}
 data = read.csv('marketing_campaign.csv', sep = '\t')  # load data
 head(data)  # print first 5 rows of data
 ```
+## Explore the Data
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-
+```{r}
+str(data)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Look for Missing Data
+
+```{r}
+sum(is.na(data))
+```
+
+```{r}
+colSums(is.na(data))  # returns number of missing values per column
+```
+We find that there are 24 missing values in the income column, and no missing values anywhere else.
+
+
