@@ -14,7 +14,7 @@ library(tidyverse)
 
 ### An Overview of the Data Set
 
-This data is collected from a marketing campaign from un unspecified company.
+This data is collected from a marketing campaign from an unspecified company.
 
 Our data set includes data on customer demographic, amount spent on each type of product, campaign engagement, and where purchases were made.
 

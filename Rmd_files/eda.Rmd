@@ -17,9 +17,13 @@ library(ggplot2)
 ## Loading Data
 
 ```{r}
-data = read.csv('marketing_campaign.csv', sep = '\t')  # load data
+data = read.csv('../data/unprocessed/marketing_campaign.csv', sep = '\t')  # load data
 head(data)  # print first 5 rows of data
 ```
+```{r}
+write.csv(data, '../data/processed/marketing_campaign_process.csv', row.names = FALSE)  # write to new csv file
+```
+
 ## Explore the Data
 
 ```{r}
@@ -36,5 +40,10 @@ sum(is.na(data))
 colSums(is.na(data))  # returns number of missing values per column
 ```
 We find that there are 24 missing values in the income column, and no missing values anywhere else.
+
+```{r}
+# inspect these specific rows that have missing income
+data[is.na(data$Income),]
+```
 
 
