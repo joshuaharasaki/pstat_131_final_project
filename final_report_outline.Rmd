@@ -96,7 +96,7 @@ Here is the link to our data set on kaggle:
 
 ```{r}
 data = read.csv('data/unprocessed/marketing_campaign.csv', sep = '\t')  # load the data
-data
+head(data, 10)
 ```
 
 ## Data Split
