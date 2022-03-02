@@ -111,9 +111,21 @@ apply(is.na(data), 2, sum)
 
 From the output above, we see that the Income column contains 24 missing values. The rest of the columns contain no missing values.
 
-Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that have
+Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that contain missing values.
+
+```{r}
+data <- data %>% filter(complete.cases(data))
+data
+```
+
+```{r}
+count(data)
+```
+
+Now, we have 2216 observations in our dataset.
 
 ## Data Split
+
 ```{r}
 hi
 ```
