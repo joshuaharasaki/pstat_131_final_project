@@ -92,12 +92,26 @@ Here is the link to our data set on kaggle:
 
 -   NumWebVisitsMonth: Number of visits to company's website in the last month
 
-## Data Cleaning
-
 ```{r}
 data = read.csv('data/unprocessed/marketing_campaign.csv', sep = '\t')  # load the data
 head(data, 10)
 ```
+
+## Data Cleaning
+
+```{r}
+count(data)
+```
+
+There are 2240 rows in this dataset
+
+```{r}
+apply(is.na(data), 2, sum)
+```
+
+From the output above, we see that the Income column contains 24 missing values. The rest of the columns contain no missing values.
+
+Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that have
 
 ## Data Split
 
