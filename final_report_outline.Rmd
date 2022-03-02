@@ -114,6 +114,9 @@ From the output above, we see that the Income column contains 24 missing values.
 Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that have
 
 ## Data Split
+```{r}
+hi
+```
 
 ## Exploratory Data Analysis
 
