@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(tidyverse)
 library(tidyr)
 library(ggplot2)
+library(cluster)
+library(caret)
 ```
 
 ## Introduction
@@ -142,6 +144,20 @@ ggplot(data, aes(Education, fill = Education)) +
   geom_bar()
 ```
 
+Let's simplify Education by creating only 3 unique values in this column.
+
+```{r}
+# convert "2n Cycle" and "Basic" to "Undergraduate"
+data["Education"][data["Education"] == "2n Cycle" | 
+                    data["Education"] == "Basic"] <- "Undergraduate"
+# convert "Graduation" to "Graduate"
+data["Education"][data["Education"] == "Graduation"] <- "Graduate"
+# convert "Master" and PhD to "Postgrad"
+data["Education"][data["Education"] == "Master" | data["Education"] == "PhD"] <- "Postgrad"
+# print new counts for Marital_Status column
+count(data, data["Education"], sort = TRUE)
+```
+
 Let's count the number of observations per category in "Martial_Status" as well.
 
 ```{r}
@@ -266,6 +282,55 @@ Delete other unimportant columns for performing dimension reduction and clusteri
 
 ```{r}
 del_unimp <- c("ID", "Dt_Customer")
+data <- data[,!(names(data) %in% del_unimp)]
+head(data)
+```
+
+Delete the complain column.
+
+```{r}
+data <- data[,!(names(data) == "Complain")]
+```
+
+Create a column for the total number of accepted promotions
+
+```{r}
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
+                   "AcceptedCmp5", "Response")
+data <- data[,!(names(data) %in% del_accep_cmp)]
+head(data)
+```
+
+## Dimension Reduction
+
+First, we have to label encode the categorical variables.
+
+```{r}
+# convert "Undergraduate" to 0
+data["Education"][data["Education"] == "Undergraduate"] <- 0
+# convert "Graduate" to 1
+data["Education"][data["Education"] == "Graduate"] <- 1
+# convert "Postgrad" to 2
+data["Education"][data["Education"] == "Postgrad"] <- 2
+# convert string values to numeric values
+data$Education <- strtoi(data$Education)
+# print table of Education values
+table(data$Education)
+```
+
+```{r}
+data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
+table(data$Marital_Status)
+```
+
+Next, scale the dataframe
+
+```{r}
+scaled_data = data.frame(scale(data, center = TRUE, scale = TRUE))
+head(scaled_data)
 ```
 
 ## Data Split
