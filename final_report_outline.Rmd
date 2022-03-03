@@ -97,7 +97,7 @@ data = read.csv('data/unprocessed/marketing_campaign.csv', sep = '\t')  # load t
 head(data, 10)
 ```
 
-## Data Cleaning
+## Data Cleaning & EDA
 
 ```{r}
 count(data)
@@ -123,6 +123,150 @@ count(data)
 ```
 
 Now, we have 2216 observations in our dataset.
+
+### Now let's explore each segment of the dataset
+
+#### People
+
+We want to be able to find the unique values in each of the categorical features in our dataset.
+
+Here is the total count of each category under "Education".
+
+```{r}
+count(data, data["Education"], sort = TRUE)
+```
+
+```{r}
+ggplot(data, aes(Education, fill = Education)) +
+  labs(title = 'Histogram for Education') +
+  geom_bar()
+```
+
+Let's count the number of observations per category in "Martial_Status" as well.
+
+```{r}
+count(data, data["Marital_Status"], sort = TRUE)
+```
+
+Since "Absurd" and "YOLO" aren't useful to us under this feature, we are going to remove these rows.
+
+```{r}
+data <- data[!(data$Marital_Status == "YOLO" | data$Marital_Status == "Absurd"),]
+data
+```
+
+Let's create two unique elements in Marital_Status
+
+```{r}
+# convert "Together" to "Married"
+data["Marital_Status"][data["Marital_Status"] == "Together"] <- "Married"
+# convert "Alone", "Divorced", and "Widow" to "Single"
+data["Marital_Status"][data["Marital_Status"] == "Alone" |
+                         data["Marital_Status"] == "Divorced" |
+                         data["Marital_Status"] == "Widow"] <- "Single"
+# print new counts for Marital_Status column
+count(data, data["Marital_Status"], sort = TRUE)
+```
+
+When were our customer's born?
+
+```{r}
+ggplot(data, aes(Year_Birth)) +
+  labs(title = 'Distribution of Birth Years of Cusomters') +
+  geom_histogram(binwidth = 2)
+```
+
+```{r}
+sprintf("Oldest Birth Year: %s", min(data$Year_Birth))
+sprintf("Latest Birth Year: %s", max(data$Year_Birth))
+```
+
+```{r}
+# identifies the rows that contain the outliers for Year_Birth
+data[data$Year_Birth < 1920,]
+```
+
+Let's remove these outliers.
+
+```{r}
+data <- data[!(data$Year_Birth < 1920),]
+data
+```
+
+The dataset contains 2209 rows now.
+
+#### More Univariate Analysis
+
+```{r}
+
+```
+
+#### More Feature Engineering
+
+```{r}
+# Create column for total spending
+data["Total_Spending"] <- data["MntWines"] + data["MntFruits"] + data["MntMeatProducts"] + 
+                          data["MntFishProducts"] + data["MntSweetProducts"] +  
+                          data["MntGoldProds"]
+head(data)
+```
+
+Remove the individual columns for amount spent on each product.
+
+```{r}
+del_amts <- c("MntWines", "MntFruits", "MntMeatProducts", "MntFishProducts", 
+              "MntSweetProducts", "MntGoldProds")
+data <- data[,!(names(data) %in% del_amts)]
+head(data)
+```
+
+Create age column from Year_Birth. Here we are assuming that we got this data from the year 2018.
+
+```{r}
+data["Age"] <- 2018 - data["Year_Birth"]
+data <- data[,!(names(data) == "Year_Birth")]
+head(data)
+```
+
+Replace the "KidHome" and "Teenhome" columns with a column representing the total number of children at home.
+
+```{r}
+data["Children"] <- data["Kidhome"] + data["Teenhome"]
+data <- data[,!(names(data) == "Kidhome" | names(data) == "Teenhome")]
+head(data)
+```
+
+Create a column for the total number of purchases.
+
+```{r}
+data["TotalNumPurchases"] <- data["NumWebPurchases"] + data["NumCatalogPurchases"] +
+                            data["NumStorePurchases"] + data["NumDealsPurchases"]
+del_NumPurchases <- c("NumWebPurchases", "NumCatalogPurchases", "NumStorePurchases",
+                      "NumDealsPurchases")
+data <- data[,!(names(data) %in% del_NumPurchases)]
+head(data)
+```
+
+```{r}
+unique(data["Z_CostContact"])
+```
+
+```{r}
+unique(data["Z_Revenue"])
+```
+
+Delete "Z_CostContact" and "Z_Revenue" because it only has one unique value.
+
+```{r}
+data <- data[,!(names(data) == "Z_CostContact" | names(data) == "Z_Revenue")]
+head(data)
+```
+
+Delete other unimportant columns for performing dimension reduction and clustering
+
+```{r}
+del_unimp <- c("ID", "Dt_Customer")
+```
 
 ## Data Split
 
