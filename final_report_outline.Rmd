@@ -290,6 +290,11 @@ Delete the complain column.
 
 ```{r}
 data <- data[,!(names(data) == "Complain")]
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> 766d5e80d4df025f0442c5f10f42a08af4bb5dcc
 ```
 
 Create a column for the total number of accepted promotions
