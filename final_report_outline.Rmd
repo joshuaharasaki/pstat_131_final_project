@@ -290,6 +290,50 @@ Delete the complain column.
 
 ```{r}
 data <- data[,!(names(data) == "Complain")]
+<<<<<<< HEAD
+=======
+```
+
+Create a column for the total number of accepted promotions
+
+```{r}
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
+                   "AcceptedCmp5", "Response")
+data <- data[,!(names(data) %in% del_accep_cmp)]
+head(data)
+```
+
+## Dimension Reduction
+
+First, we have to label encode the categorical variables.
+
+```{r}
+# convert "Undergraduate" to 0
+data["Education"][data["Education"] == "Undergraduate"] <- 0
+# convert "Graduate" to 1
+data["Education"][data["Education"] == "Graduate"] <- 1
+# convert "Postgrad" to 2
+data["Education"][data["Education"] == "Postgrad"] <- 2
+# convert string values to numeric values
+data$Education <- strtoi(data$Education)
+# print table of Education values
+table(data$Education)
+```
+
+```{r}
+data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
+table(data$Marital_Status)
+```
+
+Next, scale the dataframe
+
+```{r}
+scaled_data = data.frame(scale(data, center = TRUE, scale = TRUE))
+head(scaled_data)
+>>>>>>> b54e8ab1f82f4b226f524de98066166af3c0dd21
 ```
 
 Create a column for the total number of accepted promotions
