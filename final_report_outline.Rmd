@@ -212,11 +212,7 @@ head(data)
 
 The dataset contains 2209 rows now.
 
-#### More Univariate Analysis
-
-```{r}
-
-```
+#### Bivariate Analysis
 
 #### More Feature Engineering
 
@@ -305,6 +301,22 @@ data <- data[,!(names(data) %in% del_accep_cmp)]
 head(data)
 ```
 
+### Bivariate Analysis After Feature Engineering
+
+```{r}
+plot(Total_Spending~Income, data)
+```
+
+There seems to be one clear outlier who has far greater income than the rest of the dataset. Let's remove this observation.
+
+```{r}
+data <- data[!(data$Income == max(data$Income)),]
+```
+
+```{r}
+plot(Total_Spending~Income, data)
+```
+
 ## Dimension Reduction
 
 First, we have to label encode the categorical variables.
@@ -376,5 +388,95 @@ fviz_cluster(kmeans_clus, data = pca_3)
 ## Evaluating the Clusters
 
 ```{r}
+names(kmeans_clus)
+```
 
+```{r}
+# distribution of clusters
+ggplot(data, aes(x = kmeans_clus$cluster)) + geom_bar()
+```
+
+```{r}
+boxplot(Total_Spending~kmeans_clus$cluster, data)
+```
+
+```{r}
+boxplot(Income~kmeans_clus$cluster, data)
+```
+
+```{r}
+plot(Total_Spending~Income, data, col = kmeans_clus$cluster)
+```
+
+```{r}
+boxplot(NumWebVisitsMonth~kmeans_clus$cluster, data)
+```
+
+```{r}
+plot(Total_Spending~NumWebVisitsMonth, data, col = kmeans_clus$cluster)
+```
+
+```{r}
+boxplot(TotalNumPurchases~kmeans_clus$cluster, data)
+```
+
+```{r}
+counts <- table(data$Marital_Status, kmeans_clus$cluster)
+barplot(counts, main = "Marital Status for each Cluster",
+        xlab = "Cluster", col = c('red', 'green'),
+        legend = rownames(counts), beside = TRUE)
+```
+
+```{r}
+counts <- table(data$Education, kmeans_clus$cluster)
+barplot(counts, main = "Education Level for each Cluster",
+        xlab = "Cluster", col = c('red', 'green', 'blue'),
+        legend = rownames(counts), beside = TRUE)
+```
+
+```{r}
+counts <- table(data$Children, kmeans_clus$cluster)
+barplot(counts, main = "Number of Children for each Cluster",
+        xlab = "Cluster", ylab = "Number of Children", col = c('red', 'green', 'blue'),
+        legend = rownames(counts), beside = TRUE)
+```
+
+```{r}
+counts <- table(data$TotalAcceptedCmp, kmeans_clus$cluster)
+barplot(counts, main = "Total Accpepted Promotions for each Cluster",
+        xlab = "Cluster", ylab = "Total Accepted Promotions", col = c('red', 'green', 'blue'),
+        legend = rownames(counts), beside = TRUE)
+```
+
+```{r}
+boxplot(Income~kmeans_clus$cluster, data)
+```
+
+```{r}
+data_w_clus$cluster <- kmeans_clus$cluster
+```
+
+```{r}
+y_kmeans <- kmeans_clus$cluster
+
+clusplot(data_cop[, c("Age", "Total Spending")],
+         y_kmeans,
+         lines = 0,
+         shade = TRUE,
+         color = TRUE,
+         labels = 0, # To remove data labels from the plot
+         plotchar = TRUE,
+         span = TRUE,
+         main = paste("Customer Segments"),
+         xlab = 'Age',
+         ylab = 'Total Spending')
+```
+
+```{r}
+# summarizing customer attributes in each cluster
+data_cop %>% group_by(segment) %>% 
+  summarise(Min_Age=min(Age), Work_Experience=mean(Work_Experience),Family_Size=mean(Family_Size),
+            Graduated=getmode(Graduated),Gender=getmode(Gender),
+       Married=getmode(Ever_Married),Profession=getmode(Profession),
+            Spend=getmode(Spending_Score))
 ```
