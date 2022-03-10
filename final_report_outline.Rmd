@@ -13,6 +13,7 @@ library(tidyverse)
 library(tidyr)
 library(ggplot2)
 library(cluster)
+library(factoextra)
 library(caret)
 ```
 
@@ -117,7 +118,7 @@ Since 24 missing values is small compared to our total 2240 rows in our dataset,
 
 ```{r}
 data <- data %>% filter(complete.cases(data))
-data
+head(data)
 ```
 
 ```{r}
@@ -168,7 +169,7 @@ Since "Absurd" and "YOLO" aren't useful to us under this feature, we are going t
 
 ```{r}
 data <- data[!(data$Marital_Status == "YOLO" | data$Marital_Status == "Absurd"),]
-data
+head(data)
 ```
 
 Let's create two unique elements in Marital_Status
@@ -206,7 +207,7 @@ Let's remove these outliers.
 
 ```{r}
 data <- data[!(data$Year_Birth < 1920),]
-data
+head(data)
 ```
 
 The dataset contains 2209 rows now.
@@ -333,52 +334,11 @@ scaled_data = data.frame(scale(data, center = TRUE, scale = TRUE))
 head(scaled_data)
 ```
 
-Create a column for the total number of accepted promotions
-
-```{r}
-data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
-                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
-                            data["AcceptedCmp5"] + data["Response"]
-del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
-                   "AcceptedCmp5", "Response")
-data <- data[,!(names(data) %in% del_accep_cmp)]
-head(data)
-```
-
-## Dimension Reduction
-
-First, we have to label encode the categorical variables.
-
-```{r}
-# convert "Undergraduate" to 0
-data["Education"][data["Education"] == "Undergraduate"] <- 0
-# convert "Graduate" to 1
-data["Education"][data["Education"] == "Graduate"] <- 1
-# convert "Postgrad" to 2
-data["Education"][data["Education"] == "Postgrad"] <- 2
-# convert string values to numeric values
-data$Education <- strtoi(data$Education)
-# print table of Education values
-table(data$Education)
-```
-
-```{r}
-data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
-table(data$Marital_Status)
-```
-
-Next, scale the dataframe
-
-```{r}
-scaled_data = data.frame(scale(data, center = TRUE, scale = TRUE))
-head(scaled_data)
-```
-
 ```{r}
 write.csv(scaled_data, './Data/processed/marketing_campaign_clustering.csv', row.names = FALSE)
 ```
 
-## Dimensionality Reduction
+## Dimension Reduction
 
 ```{r}
 clus_data = read.csv("./Data/processed/marketing_campaign_clustering.csv")
@@ -386,9 +346,35 @@ head(clus_data)
 ```
 
 ```{r}
-
+pca = prcomp(data, center = TRUE, scale = TRUE)
+summary(pca)
 ```
 
-## Exploratory Data Analysis
+PC1, PC2, and PC3 explain about 46% of the data.
 
-## 
+```{r}
+# create dataframe with only 3 most significant components
+pca_3 = as.data.frame(pca$x[,1:3])
+```
+
+Determine the number of clusters using elbow method
+
+```{r}
+fviz_nbclust(pca_3, kmeans, method = 'wss')
+```
+
+It seems that there is no significant change in total within sum of square at k = 4, so we are going to use 4 clusters.
+
+```{r}
+# set the number of clusters
+k = 4
+# plot the cluster plot with PC1, PC2, and PC3
+kmeans_clus = kmeans(pca_3, centers = k, nstart = 50)
+fviz_cluster(kmeans_clus, data = pca_3)
+```
+
+## Evaluating the Clusters
+
+```{r}
+
+```
