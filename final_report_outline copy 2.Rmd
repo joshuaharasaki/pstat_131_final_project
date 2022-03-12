@@ -1,0 +1,592 @@
+---
+title: "Final Report Outline"
+author: "Joshua Harasaki, Tiffany Chiang, Katie Huynh"
+date: "2/15/2022"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(tidyr)
+library(ggplot2)
+library(ggExtra)
+library(cluster)
+library(ggridges)
+library(factoextra)
+library(scales)
+library(caret)
+```
+
+## Introduction
+
+The purpose of this project is to see if we can cluster customers based on demographic, behavioral, and lifestyle data.
+
+## Overview of Data Set
+
+This data is collected from a marketing campaign from an unspecified company.
+
+Our data set includes data on customer demographic, amount spent on each type of product, campaign engagement, and where purchases were made.
+
+Here is the link to our data set on kaggle:
+
+<https://www.kaggle.com/imakash3011/customer-personality-analysis>
+
+#### Types of Variables We Are Working With:
+
+**People**
+
+-   ID: Customer's unique identifier
+
+-   Year_Birth: Customer's birth year
+
+-   Education: Customer's education level
+
+-   Marital_Status: Customer's marital status
+
+-   Income: Customer's yearly household income
+
+-   Kidhome: Number of children in customer's household
+
+-   Teenhome: Number of teenagers in customer's household
+
+-   Dt_Customer: Date of customer's enrollment with the company
+
+-   Recency: Number of days since customer's last purchase
+
+-   Complain: 1 if the customer complained in the last 2 years, 0 otherwise
+
+**Products**
+
+-   MntWines: Amount spent on wine in last 2 years
+
+-   MntFruits: Amount spent on fruits in last 2 years
+
+-   MntMeatProducts: Amount spent on meat in last 2 years
+
+-   MntFishProducts: Amount spent on fish in last 2 years
+
+-   MntSweetProducts: Amount spent on sweets in last 2 years
+
+-   MntGoldProds: Amount spent on gold in last 2 years
+
+**Promotion**
+
+-   NumDealsPurchases: Number of purchases made with a discount
+
+-   AcceptedCmp1: 1 if customer accepted the offer in the 1st campaign, 0 otherwise
+
+-   AcceptedCmp2: 1 if customer accepted the offer in the 2nd campaign, 0 otherwise
+
+-   AcceptedCmp3: 1 if customer accepted the offer in the 3rd campaign, 0 otherwise
+
+-   AcceptedCmp4: 1 if customer accepted the offer in the 4th campaign, 0 otherwise
+
+-   AcceptedCmp5: 1 if customer accepted the offer in the 5th campaign, 0 otherwise
+
+-   Response: 1 if customer accepted the offer in the last campaign, 0 otherwise
+
+**Place**
+
+-   NumWebPurchases: Number of purchases made through the company's website
+
+-   NumCatalogPurchases: Number of purchases made using a catalogue
+
+-   NumStorePurchases: Number of purchases made directly in stores
+
+-   NumWebVisitsMonth: Number of visits to company's website in the last month
+
+```{r}
+data = read.csv('data/unprocessed/marketing_campaign.csv', sep = '\t')  # load the data
+head(data, 10)
+```
+
+## Data Cleaning & EDA
+
+```{r}
+count(data)
+```
+
+There are 2240 rows in this dataset
+
+```{r}
+apply(is.na(data), 2, sum)
+```
+
+From the output above, we see that the Income column contains 24 missing values. The rest of the columns contain no missing values.
+
+Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that contain missing values.
+
+```{r}
+data <- data %>% filter(complete.cases(data))
+head(data)
+```
+
+```{r}
+count(data)
+```
+
+Now, we have 2216 observations in our dataset.
+
+### Now let's explore each segment of the dataset
+
+#### People
+
+We want to be able to find the unique values in each of the categorical features in our dataset.
+
+Here is the total count of each category under "Education":
+
+```{r}
+count(data, data["Education"], sort = TRUE)
+```
+
+```{r}
+ggplot(data, aes(Education, fill = Education)) +
+  labs(title = 'Histogram for Education') +
+  geom_bar()
+```
+
+Let's simplify Education by creating only 3 unique values in this column:
+
+```{r}
+# convert "2n Cycle" and "Basic" to "Undergraduate"
+data["Education"][data["Education"] == "2n Cycle" | 
+                    data["Education"] == "Basic"] <- "Undergraduate"
+# convert "Graduation" to "Graduate"
+data["Education"][data["Education"] == "Graduation"] <- "Graduate"
+# convert "Master" and PhD to "Postgrad"
+data["Education"][data["Education"] == "Master" | data["Education"] == "PhD"] <- "Postgrad"
+# print new counts for Marital_Status column
+count(data, data["Education"], sort = TRUE)
+```
+
+Let's see how Education relates to Income:
+
+```{r}
+# calculate the mean income for each Education Level
+plotdata <- data %>%
+  group_by(Education) %>%
+  summarize(mean_income = mean(Income))
+
+# plot mean incomes
+ggplot(plotdata, 
+       aes(x = factor(Education,
+                      labels = c("Undergraduate", "Graduate", "Postgraduate")),
+           y = mean_income)) +
+  geom_bar(stat = "identity", fill = "cornflowerblue") +
+  geom_text(aes(label = dollar(mean_income)), vjust = -0.25) +
+  labs(x = "Education Level", y = "Mean Income") 
+```
+
+Let's count the number of observations per category in "Martial_Status" as well:
+
+```{r}
+count(data, data["Marital_Status"], sort = TRUE)
+```
+
+Since "Absurd" and "YOLO" aren't useful to us under this feature, we are going to remove these rows:
+
+```{r}
+data <- data[!(data$Marital_Status == "YOLO" | data$Marital_Status == "Absurd"),]
+head(data)
+```
+
+Let's create two unique elements in Marital_Status:
+
+```{r}
+# convert "Together" to "Married"
+data["Marital_Status"][data["Marital_Status"] == "Together"] <- "Married"
+# convert "Alone", "Divorced", and "Widow" to "Single"
+data["Marital_Status"][data["Marital_Status"] == "Alone" |
+                         data["Marital_Status"] == "Divorced" |
+                         data["Marital_Status"] == "Widow"] <- "Single"
+# print new counts for Marital_Status column
+count(data, data["Marital_Status"], sort = TRUE)
+```
+
+When were our customer's born?
+
+```{r}
+ggplot(data, aes(Year_Birth)) +
+  labs(title = 'Distribution of Birth Years of Cusomters') +
+  geom_histogram(binwidth = 2)
+```
+
+```{r}
+sprintf("Oldest Birth Year: %s", min(data$Year_Birth))
+sprintf("Latest Birth Year: %s", max(data$Year_Birth))
+```
+
+```{r}
+# identifies the rows that contain the outliers for Year_Birth
+data[data$Year_Birth < 1920,]
+```
+
+Let's remove these outliers:
+
+```{r}
+data <- data[!(data$Year_Birth < 1920),]
+head(data)
+```
+
+The dataset contains 2209 rows now.
+
+#### Bivariate Analysis
+
+#### More Feature Engineering
+
+```{r}
+# Create column for total spending
+data["Total_Spending"] <- data["MntWines"] + data["MntFruits"] + data["MntMeatProducts"] + 
+                          data["MntFishProducts"] + data["MntSweetProducts"] +  
+                          data["MntGoldProds"]
+head(data)
+```
+
+Remove the individual columns for amount spent on each product:
+
+```{r}
+del_amts <- c("MntWines", "MntFruits", "MntMeatProducts", "MntFishProducts", 
+              "MntSweetProducts", "MntGoldProds")
+data <- data[,!(names(data) %in% del_amts)]
+head(data)
+```
+
+Create age column from Year_Birth. Here we are assuming that we got this data from the year 2018:
+
+```{r}
+data["Age"] <- 2018 - data["Year_Birth"]
+data <- data[,!(names(data) == "Year_Birth")]
+head(data)
+```
+
+Replace the "KidHome" and "Teenhome" columns with a column representing the total number of children at home:
+
+```{r}
+data["Children"] <- data["Kidhome"] + data["Teenhome"]
+data <- data[,!(names(data) == "Kidhome" | names(data) == "Teenhome")]
+head(data)
+```
+
+Create a column for the total number of purchases:
+
+```{r}
+data["TotalNumPurchases"] <- data["NumWebPurchases"] + data["NumCatalogPurchases"] +
+                            data["NumStorePurchases"] + data["NumDealsPurchases"]
+del_NumPurchases <- c("NumWebPurchases", "NumCatalogPurchases", "NumStorePurchases",
+                      "NumDealsPurchases")
+data <- data[,!(names(data) %in% del_NumPurchases)]
+head(data)
+```
+
+```{r}
+unique(data["Z_CostContact"])
+```
+
+```{r}
+unique(data["Z_Revenue"])
+```
+
+Delete "Z_CostContact" and "Z_Revenue" because it only has one unique value:
+
+```{r}
+data <- data[,!(names(data) == "Z_CostContact" | names(data) == "Z_Revenue")]
+head(data)
+```
+
+Delete other unimportant columns for performing dimension reduction and clustering:
+
+```{r}
+del_unimp <- c("ID", "Dt_Customer")
+data <- data[,!(names(data) %in% del_unimp)]
+head(data)
+```
+
+Delete the complain column:
+
+```{r}
+data <- data[,!(names(data) == "Complain")]
+```
+
+Create a column for the total number of accepted promotions:
+
+```{r}
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
+                   "AcceptedCmp5", "Response")
+data <- data[,!(names(data) %in% del_accep_cmp)]
+head(data)
+```
+
+### Bivariate Analysis After Feature Engineering
+
+```{r}
+plot(Total_Spending~Income, data)
+```
+
+There seems to be one clear outlier who has far greater income than the rest of the dataset. Let's remove this observation.
+
+```{r}
+data <- data[!(data$Income == max(data$Income)),]
+```
+
+```{r}
+plot(Total_Spending~Income, data)
+```
+
+## Dimension Reduction
+
+First, we have to label encode the categorical variables:
+
+```{r}
+# convert "Undergraduate" to 0
+data["Education"][data["Education"] == "Undergraduate"] <- 0
+# convert "Graduate" to 1
+data["Education"][data["Education"] == "Graduate"] <- 1
+# convert "Postgrad" to 2
+data["Education"][data["Education"] == "Postgrad"] <- 2
+# convert string values to numeric values
+data$Education <- strtoi(data$Education)
+# print table of Education values
+table(data$Education)
+```
+
+```{r}
+data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
+table(data$Marital_Status)
+```
+
+Next, scale the dataframe:
+
+```{r}
+scaled_data = data.frame(scale(data, center = TRUE, scale = TRUE))
+head(scaled_data)
+```
+
+```{r}
+write.csv(scaled_data, './Data/processed/marketing_campaign_clustering.csv', row.names = FALSE)
+```
+
+## Dimension Reduction
+
+```{r}
+clus_data = read.csv("./Data/processed/marketing_campaign_clustering.csv")
+head(clus_data)
+```
+
+```{r}
+pca = prcomp(data, center = TRUE, scale = TRUE)
+summary(pca)
+```
+
+PC1, PC2, and PC3 explain about 46% of the data.
+
+```{r}
+# create dataframe with only 3 most significant components
+pca_3 = as.data.frame(pca$x[,1:3])
+```
+
+Determine the number of clusters using elbow method:
+
+```{r}
+fviz_nbclust(pca_3, kmeans, method = 'wss')
+```
+
+It seems that there is no significant change in total within sum of square at k = 4, so we are going to use 4 clusters.
+
+```{r}
+# set the number of clusters
+k = 4
+# plot the cluster plot with PC1, PC2, and PC3
+kmeans_clus = kmeans(pca_3, centers = k, nstart = 50)
+fviz_cluster(kmeans_clus, data = pca_3)
+```
+
+## Evaluating the Clusters
+
+First, let's assign each row in the data to their respective clusters:
+
+```{r}
+data$cluster <- as.character(kmeans_clus$cluster)
+head(data)
+```
+
+Let's look at the distribution of clusters:
+
+```{r}
+# set colors for consistency
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+n = 4
+cols = gg_color_hue(n)
+
+# distribution of clusters
+ggplot(data, aes(x = cluster)) + geom_bar(alpha = 0.8, fill = cols)
+```
+
+Now, let's look at some univariate plots to give us information about the clusters we formed:
+
+```{r}
+ggplot(data, 
+        aes(x = Total_Spending, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Total spending distribution by cluster",
+        x = "Total Spending")
+```
+
+```{r}
+ggplot(data, 
+       aes(x = cluster, 
+           y = Total_Spending)) +
+  geom_boxplot(fill = cols, alpha = 0.5) +
+  labs(title = "Salary distribution by rank",
+       x = "Clusters",
+       y = "Total Spending")
+```
+
+From the visuals above, it looks like the clusters differ greatly in total spending. Cluster 1 and 4 consists of customers who spent a small amount compared to cluster 2 and 3.
+
+```{r}
+ggplot(data, 
+        aes(x = TotalNumPurchases, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Total # of Purchases by cluster")
+```
+
+```{r}
+ggplot(data, 
+        aes(x = Income, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Income distribution by cluster")
+```
+
+The clusters seem to also differ significantly based on income.
+
+```{r}
+ggplot(data, 
+        aes(x = NumWebVisitsMonth, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Web visits by cluster",
+        x = "Number of Website Visits per Month")
+```
+
+It looks like cluster 3 consists of customers who didn't visit the website a lot while cluster 4 contains customers who frequently visited the website.
+
+```{r}
+ggplot(data, 
+        aes(x = Recency, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Recency by cluster",
+        x = "# of days since customers last purchase")
+```
+
+The number of days since the customers last purchase doesn't seem to be a significant differentiating factor between clusters.
+
+```{r}
+ggplot(data, 
+        aes(x = Age, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Age distribution by cluster")
+```
+
+Cluster 4 seems to consist of a younger population of customers.
+
+```{r}
+# calculate the mean age for each cluster
+mean_age <- data %>%
+  group_by(cluster) %>%
+  summarize(mean(Age))
+mean_age
+```
+
+Let's take a look at the education levels of each cluster:
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(Education))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "Education Level",
+                      label = c('Undergraduate', 'Graduate', 'Postgrad'))
+```
+
+It looks like cluster 1 consists of customers were are highly educated while cluster 4 consists of customers who have a relatively low level of education.
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(Marital_Status))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "Marital Status",
+                      label = c('Single', 'Married'))
+```
+
+It doesn't look like there is much differentiation in marital status between the clusters. However, cluster 3 seems to contain a lesser proportion of customers who are married.
+
+Let's see if number of children is significant:
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(Children))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "# of Children")
+```
+
+It looks like cluster 1 contains customers who have more children while cluster 3 contains customers who don't have many children.
+
+Now, let's inspect the total number of accepted promotions per cluster:
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(TotalAcceptedCmp))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "Total Accepted Promos")
+```
+
+Although the number of accepted promotions was underwhelming overall, it seems that cluster 3 contains most of the customers who accepted promotions.
+
+### Bivariate Visualizations for Cluster Analysis
+
+Now, let's look at some **bivariate plots** to give us information about the clusters we formed.
+
+Let's look at the cluster distribution on a income vs total spending scatter plot:
+
+```{r}
+p <- ggplot(data, aes(x = Income,
+                      y = Total_Spending, colour = cluster)) +
+  geom_point(size = 1,
+             alpha = .7) + 
+  labs(x = "Income",
+       y = "Total Spending",
+       title = "Income vs Total Spending")
+
+ggMarginal(p, data, x = Income, y = Total_Spending,
+           type = "density", groupColour = TRUE, groupFill = TRUE)
+```
+
+```{r}
+# summarizing customer attributes in each cluster
+data_cop %>% group_by(segment) %>% 
+  summarise(Min_Age=min(Age),
+            Work_Experience=mean(Work_Experience),
+            Family_Size=mean(Family_Size),
+            Graduated=getmode(Graduated),
+            Gender=getmode(Gender),
+            Married=getmode(Ever_Married),
+            Profession=getmode(Profession),
+            Spend=getmode(Spending_Score))
+```
