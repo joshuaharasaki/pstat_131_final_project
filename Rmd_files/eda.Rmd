@@ -21,7 +21,7 @@ data = read.csv('../data/unprocessed/marketing_campaign.csv', sep = '\t')  # loa
 head(data)  # print first 5 rows of data
 ```
 ```{r}
-write.csv(data, '../data/processed/marketing_campaign_process.csv', row.names = FALSE)  # write to new csv file
+write.csv(data, './data/processed/marketing_campaign_process.csv', row.names = FALSE)  # write to new csv file
 ```
 
 ## Explore the Data

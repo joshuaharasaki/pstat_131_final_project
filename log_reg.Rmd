@@ -1,0 +1,47 @@
+---
+title: "Logistic Regression"
+author: "Joshua Harasaki, Tiffany Chiang, Katie Huynh"
+date: "3/13/2022"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(tidyr)
+library(ggplot2)
+```
+
+## Loading Data
+
+```{r}
+data = read.csv('./data/processed/processed_data.csv')  # load data
+head(data)  # print first 5 rows of data
+```
+
+```{r}
+# create column telling us whether customer responded to any  
+data$AcceptedCmp <- ifelse(data$TotalAcceptedCmp > 0, 1, 0)
+table(data$AcceptedCmp)
+```
+
+```{r}
+data
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

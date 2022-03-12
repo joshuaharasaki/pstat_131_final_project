@@ -360,23 +360,12 @@ data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
 table(data$Marital_Status)
 ```
 
-Next, scale the dataframe:
-
 ```{r}
-scaled_data = data.frame(scale(data, center = TRUE, scale = TRUE))
-head(scaled_data)
+write.csv(data, './data/processed/processed_data.csv', row.names = FALSE)
 ```
 
-```{r}
-write.csv(scaled_data, './Data/processed/marketing_campaign_clustering.csv', row.names = FALSE)
-```
 
-## Dimension Reduction
-
-```{r}
-clus_data = read.csv("./Data/processed/marketing_campaign_clustering.csv")
-head(clus_data)
-```
+## PCA
 
 ```{r}
 pca = prcomp(data, center = TRUE, scale = TRUE)
