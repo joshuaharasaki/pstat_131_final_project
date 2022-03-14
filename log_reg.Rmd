@@ -23,12 +23,15 @@ head(data)  # print first 5 rows of data
 
 ```{r}
 # create column telling us whether customer responded to any  
-data$AcceptedCmp <- ifelse(data$TotalAcceptedCmp > 0, 1, 0)
+data$AcceptedCmp <- as.factor(ifelse(data$TotalAcceptedCmp > 0, 1, 0))
 table(data$AcceptedCmp)
 ```
 
 ```{r}
-data
+qplot(AcceptedCmp, Total_Spending, data = data, geom = "boxplot")
+```
+```{r}
+glm.fit = glm(AcceptedCmp ~ ., data=data, family = binomial)
 ```
 
 
