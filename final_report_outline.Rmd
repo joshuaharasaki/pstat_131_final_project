@@ -360,6 +360,7 @@ data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
 table(data$Marital_Status)
 ```
 
+
 ```{r}
 write.csv(data, './data/processed/processed_data.csv', row.names = FALSE)
 ```

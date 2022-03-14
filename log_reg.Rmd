@@ -31,9 +31,23 @@ table(data$AcceptedCmp)
 qplot(AcceptedCmp, Total_Spending, data = data, geom = "boxplot")
 ```
 ```{r}
-glm.fit = glm(AcceptedCmp ~ ., data=data, family = binomial)
+glm.fit = glm(AcceptedCmp ~ Education + Marital_Status + Income + Recency + NumWebVisitsMonth + 
+                Total_Spending + Age + Children + TotalNumPurchases, data=data, family = binomial)
 ```
 
+```{r}
+# summarize the logisitic regression model
+summary(glm.fit)
+```
+```{r}
+prob.training = predict(glm.fit, type = "response")
+
+round(prob.training, digits = 2)
+```
+```{r}
+data = data %>% mutate(predAccept = as.factor(ifelse(prob.training <= 0.5, "No", "Yes")))
+table(pred = data$predAccept, true = data$AcceptedCmp)
+```
 
 
 
