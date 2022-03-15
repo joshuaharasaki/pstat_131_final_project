@@ -1,0 +1,441 @@
+---
+title: "Customer Analysis and Promotion Response Prediction"
+author: "Joshua Harasaki, Tiffany Chiang, Katie Huynh"
+date: "3/15/2022"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(tidyr)
+library(ggplot2)
+library(ggExtra)
+library(cluster)
+library(ggridges)
+library(factoextra)
+library(scales)
+library(caret)
+library(glmnet)
+library(ISLR)
+library(dplyr)
+library(rsample)
+library(gbm)
+```
+
+# Introduction
+
+Our goal for this project is to use machine learning models on a set of marketing data to assist with customer segmentation and prediction of a customer's response to a firm's marketing campaigns.
+
+### What is customer segmentation?
+
+According to [Qualtrics](https://www.qualtrics.com/experience-management/brand/customer-segmentation/), a leading customer experience management firm, "Customer segmentation is an effective tool for businesses to closely align their strategy and tactics, with and better target, their customers."
+
+Customer segmentation is the practice of separating customers into groups based on common characteristics, such as demographics or behaviors, so companies can market to those customers more effectively. In addition, segmenting customers allows you to get a better understanding of your customer's needs and desires, which increases a company's customer lifetime value. Customer segmentation groups can be used to begin discussions of building a marketing persona, and can shape a brand's messaging. For example, a company can analyze which customer segment is most likely to purchase a certain product and use this information to create tailored marketing strategies.
+
+#### Customer segments can be profiled based on different attributes:
+
+1)  Segmenting customers based on *who they are*:
+
+-   Age
+-   Geography
+-   Income
+-   Relationship Status
+-   Family
+-   Job Type
+-   etc.
+
+2)  Segmenting customers based on *what they do*:
+
+-   Basket size - define this??
+-   Average spend
+-   Tenure (How long customer stays with you)
+-   Product purchase history
+-   Time elapsed since last purchase
+-   etc.
+
+Customer segments are not limited to just one attribute; they can be based on a combination of different variables.
+
+### Project Objectives
+
+1\. Group our customers based on demographic, lifestyle and behavioral data
+
+2\. Create classification models to predict which customers will respond to marketing campaigns
+
+## Overview of Data Set
+
+Let's start by exploring the data set on hand. We begin with loading data and packages.
+
+```{r}
+#Loading the data
+data = read.csv('data/unprocessed/marketing_campaign.csv', sep = '\t')
+head(data)
+```
+
+This data is collected from a marketing campaign from an unspecified company.
+
+Our data set includes 2240 observations and 29 variables. The variables can be classified in 4 categories: People, Products, Promotion, and Place. Respectively, these describe customer demographic, amount spent on each type of product, campaign engagement, and where purchases were made.
+
+Here is the link to our data set on Kaggle: <https://www.kaggle.com/imakash3011/customer-personality-analysis>
+
+### Description of Each Attribute
+
+**People**
+
+-   ID: Customer's unique identifier
+
+-   Year_Birth: Customer's birth year
+
+-   Education: Customer's education level
+
+-   Marital_Status: Customer's marital status
+
+-   Income: Customer's yearly household income
+
+-   Kidhome: Number of children in customer's household
+
+-   Teenhome: Number of teenagers in customer's household
+
+-   Dt_Customer: Date of customer's enrollment with the company
+
+-   Recency: Number of days since customer's last purchase
+
+-   Complain: 1 if the customer complained in the last 2 years, 0 otherwise
+
+**Products**
+
+-   MntWines: Amount spent on wine in last 2 years
+
+-   MntFruits: Amount spent on fruits in last 2 years
+
+-   MntMeatProducts: Amount spent on meat in last 2 years
+
+-   MntFishProducts: Amount spent on fish in last 2 years
+
+-   MntSweetProducts: Amount spent on sweets in last 2 years
+
+-   MntGoldProds: Amount spent on gold in last 2 years
+
+**Promotion**
+
+-   NumDealsPurchases: Number of purchases made with a discount
+
+-   AcceptedCmp1: 1 if customer accepted the offer in the 1st campaign, 0 otherwise
+
+-   AcceptedCmp2: 1 if customer accepted the offer in the 2nd campaign, 0 otherwise
+
+-   AcceptedCmp3: 1 if customer accepted the offer in the 3rd campaign, 0 otherwise
+
+-   AcceptedCmp4: 1 if customer accepted the offer in the 4th campaign, 0 otherwise
+
+-   AcceptedCmp5: 1 if customer accepted the offer in the 5th campaign, 0 otherwise
+
+-   Response: 1 if customer accepted the offer in the last campaign, 0 otherwise
+
+**Place**
+
+-   NumWebPurchases: Number of purchases made through the company's website
+
+-   NumCatalogPurchases: Number of purchases made using a catalogue
+
+-   NumStorePurchases: Number of purchases made directly in stores
+
+-   NumWebVisitsMonth: Number of visits to company's website in the last month
+
+## Data Preprocessing & EDA
+
+First, let's see how much data we are missing:
+
+```{r}
+apply(is.na(data), 2, sum)
+```
+
+From the output above, we see that the Income column contains 24 missing values. The rest of the columns contain no missing values.
+
+Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that contain missing values:
+
+```{r}
+data <- data %>% filter(complete.cases(data))
+head(data)
+```
+
+```{r}
+count(data)
+```
+
+Now, we have 2216 observations in our dataset.
+
+### Now let's explore the variables and perform feature engineering
+
+Here is the total count of each category under "Education":
+
+```{r}
+count(data, data["Education"], sort = TRUE)
+```
+
+```{r}
+ggplot(data, aes(Education, fill = Education)) +
+  labs(title = 'Counts for Each Education Level', x = "Education Level") +
+  geom_bar()
+```
+
+Let's simplify Education by creating only 3 unique values in this column:
+
+```{r}
+# convert "2n Cycle" and "Basic" to "Undergraduate"
+data["Education"][data["Education"] == "2n Cycle" | 
+                    data["Education"] == "Basic"] <- "Undergraduate"
+# convert "Graduation" to "Graduate"
+data["Education"][data["Education"] == "Graduation"] <- "Graduate"
+# convert "Master" and PhD to "Postgrad"
+data["Education"][data["Education"] == "Master" | data["Education"] == "PhD"] <- "Postgrad"
+# print new counts for Marital_Status column
+count(data, data["Education"], sort = TRUE)
+```
+
+Let's see how Education relates to Income:
+
+```{r}
+# calculate the mean income for each Education Level
+plotdata <- data %>%
+  group_by(Education) %>%
+  summarize(mean_income = mean(Income))
+
+# plot mean incomes
+ggplot(plotdata, 
+       aes(x = factor(Education,
+                      labels = c("Undergraduate", "Graduate", "Postgraduate")),
+           y = mean_income)) +
+  geom_bar(stat = "identity", fill = "cornflowerblue") +
+  geom_text(aes(label = dollar(mean_income)), vjust = -0.25) +
+  labs(x = "Education Level", y = "Mean Income")
+```
+
+Let's count the number of observations per category in "Martial_Status" as well:
+
+```{r}
+count(data, data["Marital_Status"], sort = TRUE)
+```
+
+Since "Absurd" and "YOLO" aren't useful to us under this feature, we are going to remove these rows:
+
+```{r}
+data <- data[!(data$Marital_Status == "YOLO" | data$Marital_Status == "Absurd"),]
+head(data)
+```
+
+Like we did with Education, let's create two unique elements in Marital_Status:
+
+```{r}
+# convert "Together" to "Married"
+data["Marital_Status"][data["Marital_Status"] == "Together"] <- "Married"
+# convert "Alone", "Divorced", and "Widow" to "Single"
+data["Marital_Status"][data["Marital_Status"] == "Alone" |
+                         data["Marital_Status"] == "Divorced" |
+                         data["Marital_Status"] == "Widow"] <- "Single"
+# print new counts for Marital_Status column
+count(data, data["Marital_Status"], sort = TRUE)
+```
+
+Assuming we got this data from 2018, let's convert birth years to age:
+
+```{r}
+data["Age"] <- 2018 - data["Year_Birth"]
+data <- data[,!(names(data) == "Year_Birth")]
+```
+
+Let's take a look at the distribution of the ages of the customers:
+
+```{r}
+ggplot(data, aes(Age)) +
+  labs(title = 'Distribution of Ages of Cusomters') +
+  geom_histogram(binwidth = 2)
+```
+
+```{r}
+sprintf("Youngest Customer: %s", min(data$Age))
+sprintf("Oldest Customer: %s", max(data$Age))
+```
+
+Our youngest customer is 22 years old and our oldest is 125. Since there seems to be a couple outliers in age in our dataset, let's remove these observations.
+
+```{r}
+# remove outliers in age
+data <- data[!(data$Age > 100),]
+```
+
+Let's continue with our feature engineering and create a column for total spending by combining all of the categories for spending.
+
+```{r}
+# Create column for total spending
+data["Total_Spending"] <- data["MntWines"] + data["MntFruits"] + data["MntMeatProducts"] + 
+                          data["MntFishProducts"] + data["MntSweetProducts"] +  
+                          data["MntGoldProds"]
+head(data)
+```
+
+Remove the individual columns for amount spent on each product:
+
+```{r}
+del_amts <- c("MntWines", "MntFruits", "MntMeatProducts", "MntFishProducts", 
+              "MntSweetProducts", "MntGoldProds")
+data <- data[,!(names(data) %in% del_amts)]
+head(data)
+```
+
+Replace the "KidHome" and "Teenhome" columns with a column representing the total number of children at home:
+
+```{r}
+data["Children"] <- data["Kidhome"] + data["Teenhome"]
+data <- data[,!(names(data) == "Kidhome" | names(data) == "Teenhome")]
+head(data)
+```
+
+Create a column for the total number of purchases:
+
+```{r}
+data["TotalNumPurchases"] <- data["NumWebPurchases"] + data["NumCatalogPurchases"] +
+                            data["NumStorePurchases"] + data["NumDealsPurchases"]
+del_NumPurchases <- c("NumWebPurchases", "NumCatalogPurchases", "NumStorePurchases",
+                      "NumDealsPurchases")
+data <- data[,!(names(data) %in% del_NumPurchases)]
+head(data)
+```
+
+```{r}
+unique(data["Z_CostContact"])
+```
+
+```{r}
+unique(data["Z_Revenue"])
+```
+
+Delete "Z_CostContact" and "Z_Revenue" because it only has one unique value:
+
+```{r}
+data <- data[,!(names(data) == "Z_CostContact" | names(data) == "Z_Revenue")]
+head(data)
+```
+
+Delete other unimportant columns for performing dimension reduction and clustering:
+
+```{r}
+del_unimp <- c("ID", "Dt_Customer")
+data <- data[,!(names(data) %in% del_unimp)]
+head(data)
+```
+
+Delete the complain column:
+
+```{r}
+data <- data[,!(names(data) == "Complain")]
+```
+
+Create a column for the total number of accepted promotions:
+
+```{r}
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
+                   "AcceptedCmp5", "Response")
+data <- data[,!(names(data) %in% del_accep_cmp)]
+head(data)
+```
+
+### Bivariate Analysis After Feature Engineering
+
+```{r}
+plot(Total_Spending~Income, data)
+```
+
+There seems to be one clear outlier who has far greater income than the rest of the dataset. Let's remove this observation.
+
+```{r}
+data <- data[!(data$Income == max(data$Income)),]
+```
+
+```{r}
+plot(Total_Spending~Income, data)
+```
+
+Create a column for the total number of accepted promotions
+
+```{r}
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
+                   "AcceptedCmp5", "Response")
+data <- data[,!(names(data) %in% del_accep_cmp)]
+head(data)
+```
+
+```{r}
+#value will be 1 if a customer has accepted, 0 if customer has not accepted a campaign
+data$AcceptedCmp <- as.factor(ifelse(data$TotalAcceptedCmp > 0, 1, 0))
+head(data)
+```
+
+# Data Split
+
+The data was split into a 80/20 training and test split.
+
+```{r}
+data_split <- data %>% 
+  initial_split(prop = 0.8)
+data_train <- training(data_split)
+data_test <- testing(data_split)
+```
+
+## Exploratory Data Analysis
+
+First, lets explore our data through EDA. Let's better understand our customers... can we segment our customers based on identifiable characteristics...?
+
+### K-Means clusting
+
+Now that we have a good idea of our customer base and that we have segmented them into 4 groups, lets see which customers respond well to promotions (lead to next section) Different clusters were created. JOSH'S PART
+
+### Boosting
+
+```{r}
+set.seed(1)
+boost.data = gbm(AcceptedCmp~., data=data_train, distribution="bernoulli", n.trees=500, interaction.depth=4)
+summary(boost.data)
+```
+
+Total_Spending and income are the most influential predictors. We can also create partial dependence plots for these variables which would illustrate the marginal effect of the selected variables on the response after integrating out the other variables.
+
+```{r}
+par(mfrow = c(1,2))
+plot(boost.data, i='Total_Spending')
+```
+
+```{r}
+plot(boost.data, i= 'Income')
+```
+
+And lastly, we can use the boosted model to predict on the test set.
+
+```{r}
+yhat.boost = predict(boost.data, newdata = data_test, n.trees = 500, type = "response")
+yhat.boost = ifelse(yhat.boost > 0.5, 1, 0)
+test.boost.error = mean(yhat.boost != ifelse(data_test$AcceptedCmp == "1", 1, 0))
+test.boost.error
+```
+
+Ans: The test error for boosting is 0.167.
+
+### Logistic Regression
+
+Predicting which customers respond to promo
+
+### Random Forest
+
+Predicting which customers respond to promo
+
+### Discussion of our best-fitting model
+
+Compare logistic regression vs random forest
