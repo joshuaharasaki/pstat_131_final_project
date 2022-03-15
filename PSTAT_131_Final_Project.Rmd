@@ -23,6 +23,8 @@ library(ISLR)
 library(dplyr)
 library(rsample)
 library(gbm)
+library(ggstatsplot)
+library(lares)
 ```
 
 # Introduction
@@ -146,6 +148,8 @@ Here is the link to our data set on Kaggle: <https://www.kaggle.com/imakash3011/
 
 ## Data Preprocessing & EDA
 
+### Handling Missing Values
+
 First, let's see how much data we are missing:
 
 ```{r}
@@ -259,41 +263,27 @@ sprintf("Youngest Customer: %s", min(data$Age))
 sprintf("Oldest Customer: %s", max(data$Age))
 ```
 
-Our youngest customer is 22 years old and our oldest is 125. Since there seems to be a couple outliers in age in our dataset, let's remove these observations.
+Our youngest customer is 22 years old and our oldest is 125. Since there seems to be a couple outliers in age in our dataset, let's remove these observations:
 
 ```{r}
 # remove outliers in age
 data <- data[!(data$Age > 100),]
 ```
 
-Let's continue with our feature engineering and create a column for total spending by combining all of the categories for spending.
+Let's continue with our feature engineering and create a column for total spending by combining all of the categories for spending:
 
 ```{r}
 # Create column for total spending
 data["Total_Spending"] <- data["MntWines"] + data["MntFruits"] + data["MntMeatProducts"] + 
                           data["MntFishProducts"] + data["MntSweetProducts"] +  
                           data["MntGoldProds"]
-head(data)
-```
-
-Remove the individual columns for amount spent on each product:
-
-```{r}
+# remove individual columns for amount spent on each product
 del_amts <- c("MntWines", "MntFruits", "MntMeatProducts", "MntFishProducts", 
               "MntSweetProducts", "MntGoldProds")
 data <- data[,!(names(data) %in% del_amts)]
-head(data)
 ```
 
-Replace the "KidHome" and "Teenhome" columns with a column representing the total number of children at home:
-
-```{r}
-data["Children"] <- data["Kidhome"] + data["Teenhome"]
-data <- data[,!(names(data) == "Kidhome" | names(data) == "Teenhome")]
-head(data)
-```
-
-Create a column for the total number of purchases:
+Likewise, let's create a column for the total number of purchases by the customer:
 
 ```{r}
 data["TotalNumPurchases"] <- data["NumWebPurchases"] + data["NumCatalogPurchases"] +
@@ -304,6 +294,37 @@ data <- data[,!(names(data) %in% del_NumPurchases)]
 head(data)
 ```
 
+Let's create a new column for the total number of accepted marketing campaigns by the customer, and a column that indicates whether a customer has accepted a campaign in the past:
+
+```{r}
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+# create column telling us whether customer responded to any campaign
+data$AcceptedCmp <- ifelse(data$TotalAcceptedCmp > 0, 1, 0)
+```
+
+```{r}
+table(data$AcceptedCmp)
+```
+
+Now, let's explore these new variables:
+
+```{r}
+# prints distribution of customers who have accpeted a campaign
+ggplot(data, aes(x = AcceptedCmp)) + geom_bar(alpha = 0.8)
+```
+
+Let's replace the "KidHome" and "Teenhome" columns with a column representing the total number of children at home:
+
+```{r}
+# create column for total children at home
+data["Children"] <- data["Kidhome"] + data["Teenhome"]
+data <- data[,!(names(data) == "Kidhome" | names(data) == "Teenhome")]
+```
+
+Let's inspect the remaining columns:
+
 ```{r}
 unique(data["Z_CostContact"])
 ```
@@ -312,40 +333,32 @@ unique(data["Z_CostContact"])
 unique(data["Z_Revenue"])
 ```
 
-Delete "Z_CostContact" and "Z_Revenue" because it only has one unique value:
+Because "Z_CostContact" and "Z_Revenue" only has one unique value, let's delete it:
 
 ```{r}
 data <- data[,!(names(data) == "Z_CostContact" | names(data) == "Z_Revenue")]
 head(data)
 ```
 
-Delete other unimportant columns for performing dimension reduction and clustering:
+Delete other unimportant columns:
 
 ```{r}
+# delete ID and Dt_Customer
 del_unimp <- c("ID", "Dt_Customer")
 data <- data[,!(names(data) %in% del_unimp)]
-head(data)
-```
-
-Delete the complain column:
-
-```{r}
+# delete complain column
 data <- data[,!(names(data) == "Complain")]
 ```
 
-Create a column for the total number of accepted promotions:
+Now, let's inspect our processed dataset:
 
 ```{r}
-data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
-                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
-                            data["AcceptedCmp5"] + data["Response"]
-del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
-                   "AcceptedCmp5", "Response")
-data <- data[,!(names(data) %in% del_accep_cmp)]
 head(data)
 ```
 
-### Bivariate Analysis After Feature Engineering
+Our dataset now consists of .....
+
+### EDA After Feature Engineering
 
 ```{r}
 plot(Total_Spending~Income, data)
@@ -361,22 +374,265 @@ data <- data[!(data$Income == max(data$Income)),]
 plot(Total_Spending~Income, data)
 ```
 
-Create a column for the total number of accepted promotions
-
-```{r}
-data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
-                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
-                            data["AcceptedCmp5"] + data["Response"]
-del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
-                   "AcceptedCmp5", "Response")
-data <- data[,!(names(data) %in% del_accep_cmp)]
-head(data)
-```
-
 ```{r}
 #value will be 1 if a customer has accepted, 0 if customer has not accepted a campaign
 data$AcceptedCmp <- as.factor(ifelse(data$TotalAcceptedCmp > 0, 1, 0))
 head(data)
+```
+
+```{r}
+# prints out correlations with AcceptedCmp variable
+corr_var(data, AcceptedCmp)
+```
+
+```{r}
+# calculate the mean total number of purchases amoungst customers
+plot_mean <- data %>%
+  group_by(AcceptedCmp) %>%
+  summarize(mean_num_purchases = round(mean(TotalNumPurchases), digits = 3))
+
+# plot mean total number of purchases
+ggplot(plot_mean, 
+       aes(x = factor(AcceptedCmp,
+                      labels = c("Did not accept", "Accepted")),
+           y = mean_num_purchases)) +
+  geom_bar(stat = "identity", fill = "cornflowerblue") +
+  geom_text(aes(label = mean_num_purchases, vjust = -0.25)) +
+  labs(x = "Customer Response", y = "Mean Total Number of Purchases") 
+```
+
+```{r}
+# calculate the mean total spending amoungst customers
+plot_mean <- data %>%
+  group_by(AcceptedCmp) %>%
+  summarize(mean_total_spending = round(mean(Total_Spending), digits = 3))
+
+# plot mean total number of purchases
+ggplot(plot_mean, 
+       aes(x = factor(AcceptedCmp,
+                      labels = c("Did not accept", "Accepted")),
+           y = mean_total_spending)) +
+  geom_bar(stat = "identity", fill = "cornflowerblue") +
+  geom_text(aes(label = mean_total_spending, vjust = -0.25)) +
+  labs(x = "Customer Response", y = "Mean Total Spending") 
+```
+
+### Dimension Reduction for Clustering
+
+First, let's label encode the categorical variables:
+
+```{r}
+# convert "Undergraduate" to 0
+data["Education"][data["Education"] == "Undergraduate"] <- 0
+# convert "Graduate" to 1
+data["Education"][data["Education"] == "Graduate"] <- 1
+# convert "Postgrad" to 2
+data["Education"][data["Education"] == "Postgrad"] <- 2
+# convert string values to numeric values
+data$Education <- strtoi(data$Education)
+# print table of Education values
+table(data$Education)
+```
+
+```{r}
+data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
+table(data$Marital_Status)
+```
+
+### PCA
+
+Next, let's perform dimension reduction using PCA:
+
+```{r}
+pca = prcomp(data, center = TRUE, scale = TRUE)
+summary(pca)
+```
+
+```{r}
+# create dataframe with only 3 most significant components
+pca_3 = as.data.frame(pca$x[,1:3])
+```
+
+Determine the optimal number of clusters using elbow method:
+
+```{r}
+fviz_nbclust(pca_3, kmeans, method = 'wss')
+```
+
+It seems that there is no significant change in total within sum of square at k = 4, so we are going to use 4 clusters.
+
+```{r}
+# set the number of clusters
+k = 4
+# plot the cluster plot with PC1, PC2, and PC3
+kmeans_clus = kmeans(pca_3, centers = k, nstart = 50)
+fviz_cluster(kmeans_clus, data = pca_3)
+```
+
+## Evaluating the Clusters
+
+First, let's assign each row in the data to their respective clusters:
+
+```{r}
+data$cluster <- as.factor(kmeans_clus$cluster)
+head(data)
+```
+
+Let's look at the distribution of clusters:
+
+```{r}
+# set colors for consistency
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+n = 4
+cols = gg_color_hue(n)
+
+# distribution of clusters
+ggplot(data, aes(x = cluster)) + geom_bar(alpha = 0.8, fill = cols)
+```
+
+Now, let's look at some univariate plots to give us information about the clusters we formed:
+
+```{r}
+ggplot(data, 
+        aes(x = Total_Spending, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Total spending distribution by cluster",
+        x = "Total Spending")
+```
+
+```{r}
+ggplot(data, 
+       aes(x = cluster, 
+           y = Total_Spending)) +
+  geom_boxplot(fill = cols, alpha = 0.5) +
+  labs(title = "Salary distribution by rank",
+       x = "Clusters",
+       y = "Total Spending")
+```
+
+From the visuals above, it looks like the clusters differ greatly in total spending. Cluster 1 and 4 consists of customers who spent a small amount compared to cluster 2 and 3.
+
+```{r}
+ggplot(data, 
+        aes(x = TotalNumPurchases, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Total # of Purchases by cluster")
+```
+
+```{r}
+ggplot(data, 
+        aes(x = Income, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Income distribution by cluster")
+```
+
+The clusters seem to also differ significantly based on income.
+
+```{r}
+ggplot(data, 
+        aes(x = NumWebVisitsMonth, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Web visits by cluster",
+        x = "Number of Website Visits per Month")
+```
+
+It looks like cluster 3 consists of customers who didn't visit the website a lot while cluster 4 contains customers who frequently visited the website.
+
+```{r}
+ggplot(data, 
+        aes(x = Recency, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Recency by cluster",
+        x = "# of days since customers last purchase")
+```
+
+The number of days since the customers last purchase doesn't seem to be a significant differentiating factor between clusters.
+
+```{r}
+ggplot(data, 
+        aes(x = Age, 
+            fill = cluster)) +
+   geom_density(alpha = 0.4) +
+   labs(title = "Age distribution by cluster")
+```
+
+Cluster 4 seems to consist of a younger population of customers.
+
+```{r}
+# calculate the mean age for each cluster
+mean_age <- data %>%
+  group_by(cluster) %>%
+  summarize(mean(Age))
+mean_age
+```
+
+Let's take a look at the education levels of each cluster:
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(Education))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "Education Level",
+                      label = c('Undergraduate', 'Graduate', 'Postgrad'))
+```
+
+It looks like cluster 1 consists of customers were are highly educated while cluster 4 consists of customers who have a relatively low level of education.
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(Marital_Status))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "Marital Status",
+                      label = c('Single', 'Married'))
+```
+
+It doesn't look like there is much differentiation in marital status between the clusters. However, cluster 3 seems to contain a lesser proportion of customers who are married.
+
+Let's see if number of children is significant:
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(Children))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "# of Children")
+```
+
+It looks like cluster 1 contains customers who have more children while cluster 3 contains customers who don't have many children.
+
+Now, let's inspect the total number of accepted promotions per cluster:
+
+```{r}
+ggplot(data,
+       aes(x = cluster, 
+           fill = as.character(TotalAcceptedCmp))) + 
+  geom_bar(position = position_dodge(preserve = "single")) + 
+  scale_fill_discrete(name = "Total Accepted Promos")
+```
+
+Although the number of accepted promotions was underwhelming overall, it seems that cluster 3 contains most of the customers who accepted promotions.
+
+```{r}
+p <- ggplot(data, aes(x = Income,
+                      y = Total_Spending, colour = cluster)) +
+  geom_point(size = 1,
+             alpha = .7) + 
+  labs(x = "Income",
+       y = "Total Spending",
+       title = "Income vs Total Spending")
+
+ggMarginal(p, data, x = Income, y = Total_Spending,
+           type = "density", groupColour = TRUE, groupFill = TRUE)
 ```
 
 # Data Split
@@ -394,9 +650,31 @@ data_test <- testing(data_split)
 
 First, lets explore our data through EDA. Let's better understand our customers... can we segment our customers based on identifiable characteristics...?
 
-### K-Means clusting
+### K-Means Clustering
 
-Now that we have a good idea of our customer base and that we have segmented them into 4 groups, lets see which customers respond well to promotions (lead to next section) Different clusters were created. JOSH'S PART
+For the sake of reducing redundancy and the dimensions of our dataset as much as possible, let's combine the customer responses to all of the campaigns.
+
+```{r}
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
+                   "AcceptedCmp5", "Response")
+data <- data[,!(names(data) %in% del_accep_cmp)]
+head(data)
+```
+
+## Predicting Customer Response to Promotions
+
+Now that we have a good idea of our customer base and that we have segmented them into 4 groups, lets see which customers respond well to promotions.
+
+We are going to predict a customer's response to a marketing campaign using 3 different classification models: Logistic Regression, Boosting, and Random Forest.
+
+### Logistic Regression
+
+First, let's look at the logistic regression model:
+
+JOSH
 
 ### Boosting
 
@@ -428,14 +706,14 @@ test.boost.error
 
 Ans: The test error for boosting is 0.167.
 
-### Logistic Regression
-
-Predicting which customers respond to promo
-
 ### Random Forest
 
-Predicting which customers respond to promo
+KATIE
 
 ### Discussion of our best-fitting model
 
 Compare logistic regression vs random forest
+
+## Conclusion
+
+Everyone, after all work is done
