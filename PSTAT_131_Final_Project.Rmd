@@ -1,7 +1,7 @@
 ---
-title: "Final Report Outline"
+title: "Customer Analysis and Promotion Response Prediction"
 author: "Joshua Harasaki, Tiffany Chiang, Katie Huynh"
-date: "2/15/2022"
+date: "3/15/2022"
 output: 
   html_document:
     code_folding: hide
@@ -18,23 +18,69 @@ library(ggridges)
 library(factoextra)
 library(scales)
 library(caret)
+library(glmnet)
+library(ISLR)
+library(dplyr)
+library(rsample)
+library(gbm)
 ```
 
-## Introduction
+# Introduction
 
-The purpose of this project is to see if we can cluster customers based on demographic, behavioral, and lifestyle data.
+Our goal for this project is to use machine learning models on a set of marketing data to assist with customer segmentation and prediction of a customer's response to a firm's marketing campaigns.
+
+### What is customer segmentation?
+
+According to [Qualtrics](https://www.qualtrics.com/experience-management/brand/customer-segmentation/), a leading customer experience management firm, "Customer segmentation is an effective tool for businesses to closely align their strategy and tactics, with and better target, their customers."
+
+Customer segmentation is the practice of separating customers into groups based on common characteristics, such as demographics or behaviors, so companies can market to those customers more effectively. In addition, segmenting customers allows you to get a better understanding of your customer's needs and desires, which increases a company's customer lifetime value. Customer segmentation groups can be used to begin discussions of building a marketing persona, and can shape a brand's messaging. For example, a company can analyze which customer segment is most likely to purchase a certain product and use this information to create tailored marketing strategies.
+
+#### Customer segments can be profiled based on different attributes:
+
+1)  Segmenting customers based on *who they are*:
+
+-   Age
+-   Geography
+-   Income
+-   Relationship Status
+-   Family
+-   Job Type
+-   etc.
+
+2)  Segmenting customers based on *what they do*:
+
+-   Basket size - define this??
+-   Average spend
+-   Tenure (How long customer stays with you)
+-   Product purchase history
+-   Time elapsed since last purchase
+-   etc.
+
+Customer segments are not limited to just one attribute; they can be based on a combination of different variables.
+
+### Project Objectives
+
+1\. Group our customers based on demographic, lifestyle and behavioral data
+
+2\. Create classification models to predict which customers will respond to marketing campaigns
 
 ## Overview of Data Set
 
+Let's start by exploring the data set on hand. We begin with loading data and packages.
+
+```{r}
+#Loading the data
+data = read.csv('data/unprocessed/marketing_campaign.csv', sep = '\t')
+head(data)
+```
+
 This data is collected from a marketing campaign from an unspecified company.
 
-Our data set includes data on customer demographic, amount spent on each type of product, campaign engagement, and where purchases were made.
+Our data set includes 2240 observations and 29 variables. The variables can be classified in 4 categories: People, Products, Promotion, and Place. Respectively, these describe customer demographic, amount spent on each type of product, campaign engagement, and where purchases were made.
 
-Here is the link to our data set on kaggle:
+Here is the link to our data set on Kaggle: <https://www.kaggle.com/imakash3011/customer-personality-analysis>
 
-<https://www.kaggle.com/imakash3011/customer-personality-analysis>
-
-#### Types of Variables We Are Working With:
+### Description of Each Attribute
 
 **People**
 
@@ -98,18 +144,9 @@ Here is the link to our data set on kaggle:
 
 -   NumWebVisitsMonth: Number of visits to company's website in the last month
 
-```{r}
-data = read.csv('data/unprocessed/marketing_campaign.csv', sep = '\t')  # load the data
-head(data, 10)
-```
+## Data Preprocessing & EDA
 
-## Data Cleaning & EDA
-
-```{r}
-count(data)
-```
-
-There are 2240 rows in this dataset
+First, let's see how much data we are missing:
 
 ```{r}
 apply(is.na(data), 2, sum)
@@ -117,7 +154,7 @@ apply(is.na(data), 2, sum)
 
 From the output above, we see that the Income column contains 24 missing values. The rest of the columns contain no missing values.
 
-Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that contain missing values.
+Since 24 missing values is small compared to our total 2240 rows in our dataset, we are going to remove these rows that contain missing values:
 
 ```{r}
 data <- data %>% filter(complete.cases(data))
@@ -130,7 +167,7 @@ count(data)
 
 Now, we have 2216 observations in our dataset.
 
-### Now let's explore each segment of the dataset
+### Now let's explore each segment of the dataset and perform feature engineering
 
 #### People
 
@@ -144,7 +181,7 @@ count(data, data["Education"], sort = TRUE)
 
 ```{r}
 ggplot(data, aes(Education, fill = Education)) +
-  labs(title = 'Histogram for Education') +
+  labs(title = 'Counts for Each Education Level', x = "Education Level") +
   geom_bar()
 ```
 
@@ -177,7 +214,7 @@ ggplot(plotdata,
            y = mean_income)) +
   geom_bar(stat = "identity", fill = "cornflowerblue") +
   geom_text(aes(label = dollar(mean_income)), vjust = -0.25) +
-  labs(x = "Education Level", y = "Mean Income") 
+  labs(x = "Education Level", y = "Mean Income")
 ```
 
 Let's count the number of observations per category in "Martial_Status" as well:
@@ -338,243 +375,81 @@ data <- data[!(data$Income == max(data$Income)),]
 plot(Total_Spending~Income, data)
 ```
 
-## Dimension Reduction
-
-First, we have to label encode the categorical variables:
+Create a column for the total number of accepted promotions
 
 ```{r}
-# convert "Undergraduate" to 0
-data["Education"][data["Education"] == "Undergraduate"] <- 0
-# convert "Graduate" to 1
-data["Education"][data["Education"] == "Graduate"] <- 1
-# convert "Postgrad" to 2
-data["Education"][data["Education"] == "Postgrad"] <- 2
-# convert string values to numeric values
-data$Education <- strtoi(data$Education)
-# print table of Education values
-table(data$Education)
-```
-
-```{r}
-data$Marital_Status <- ifelse(data$Marital_Status == "Married", 1, 0)
-table(data$Marital_Status)
-```
-
-```{r}
-write.csv(data, './data/processed/processed_data.csv', row.names = FALSE)
-```
-
-## PCA
-
-```{r}
-pca = prcomp(data, center = TRUE, scale = TRUE)
-summary(pca)
-```
-
-PC1, PC2, and PC3 explain about 46% of the data.
-
-```{r}
-# create dataframe with only 3 most significant components
-pca_3 = as.data.frame(pca$x[,1:3])
-```
-
-Determine the number of clusters using elbow method:
-
-```{r}
-fviz_nbclust(pca_3, kmeans, method = 'wss')
-```
-
-It seems that there is no significant change in total within sum of square at k = 4, so we are going to use 4 clusters.
-
-```{r}
-# set the number of clusters
-k = 4
-# plot the cluster plot with PC1, PC2, and PC3
-kmeans_clus = kmeans(pca_3, centers = k, nstart = 50)
-fviz_cluster(kmeans_clus, data = pca_3)
-```
-
-## Evaluating the Clusters
-
-First, let's assign each row in the data to their respective clusters:
-
-```{r}
-data$cluster <- as.character(kmeans_clus$cluster)
+data["TotalAcceptedCmp"] <- data["AcceptedCmp1"] + data["AcceptedCmp2"] + 
+                            data["AcceptedCmp3"] + data["AcceptedCmp4"] + 
+                            data["AcceptedCmp5"] + data["Response"]
+del_accep_cmp <- c("AcceptedCmp1", "AcceptedCmp2", "AcceptedCmp3", "AcceptedCmp4", 
+                   "AcceptedCmp5", "Response")
+data <- data[,!(names(data) %in% del_accep_cmp)]
 head(data)
 ```
 
-Let's look at the distribution of clusters:
-
 ```{r}
-# set colors for consistency
-gg_color_hue <- function(n) {
-  hues = seq(15, 375, length = n + 1)
-  hcl(h = hues, l = 65, c = 100)[1:n]
-}
-n = 4
-cols = gg_color_hue(n)
-
-# distribution of clusters
-ggplot(data, aes(x = cluster)) + geom_bar(alpha = 0.8, fill = cols)
+#value will be 1 if a customer has accepted, 0 if customer has not accepted a campaign
+data$AcceptedCmp <- as.factor(ifelse(data$TotalAcceptedCmp > 0, 1, 0))
+head(data)
 ```
 
-Now, let's look at some univariate plots to give us information about the clusters we formed:
+# Data Split
+
+The data was split into a 80/20 training and test split.
 
 ```{r}
-ggplot(data, 
-        aes(x = Total_Spending, 
-            fill = cluster)) +
-   geom_density(alpha = 0.4) +
-   labs(title = "Total spending distribution by cluster",
-        x = "Total Spending")
+data_split <- data %>% 
+  initial_split(prop = 0.8)
+data_train <- training(data_split)
+data_test <- testing(data_split)
 ```
 
+## Exploratory Data Analysis
+
+First, lets explore our data through EDA. Let's better understand our customers... can we segment our customers based on identifiable characteristics...?
+
+### K-Means clusting
+
+Now that we have a good idea of our customer base and that we have segmented them into 4 groups, lets see which customers respond well to promotions (lead to next section) Different clusters were created. JOSH'S PART
+
+### Boosting
+
 ```{r}
-ggplot(data, 
-       aes(x = cluster, 
-           y = Total_Spending)) +
-  geom_boxplot(fill = cols, alpha = 0.5) +
-  labs(title = "Salary distribution by rank",
-       x = "Clusters",
-       y = "Total Spending")
+set.seed(1)
+boost.data = gbm(AcceptedCmp~., data=data_train, distribution="bernoulli", n.trees=500, interaction.depth=4)
+summary(boost.data)
 ```
 
-From the visuals above, it looks like the clusters differ greatly in total spending. Cluster 1 and 4 consists of customers who spent a small amount compared to cluster 2 and 3.
+Total_Spending and income are the most influential predictors. We can also create partial dependence plots for these variables which would illustrate the marginal effect of the selected variables on the response after integrating out the other variables.
 
 ```{r}
-ggplot(data, 
-        aes(x = TotalNumPurchases, 
-            fill = cluster)) +
-   geom_density(alpha = 0.4) +
-   labs(title = "Total # of Purchases by cluster")
+par(mfrow = c(1,2))
+plot(boost.data, i='Total_Spending')
 ```
 
 ```{r}
-ggplot(data, 
-        aes(x = Income, 
-            fill = cluster)) +
-   geom_density(alpha = 0.4) +
-   labs(title = "Income distribution by cluster")
+plot(boost.data, i= 'Income')
 ```
 
-The clusters seem to also differ significantly based on income.
+And lastly, we can use the boosted model to predict on the test set.
 
 ```{r}
-ggplot(data, 
-        aes(x = NumWebVisitsMonth, 
-            fill = cluster)) +
-   geom_density(alpha = 0.4) +
-   labs(title = "Web visits by cluster",
-        x = "Number of Website Visits per Month")
+yhat.boost = predict(boost.data, newdata = data_test, n.trees = 500, type = "response")
+yhat.boost = ifelse(yhat.boost > 0.5, 1, 0)
+test.boost.error = mean(yhat.boost != ifelse(data_test$AcceptedCmp == "1", 1, 0))
+test.boost.error
 ```
 
-It looks like cluster 3 consists of customers who didn't visit the website a lot while cluster 4 contains customers who frequently visited the website.
+Ans: The test error for boosting is 0.167.
 
-```{r}
-ggplot(data, 
-        aes(x = Recency, 
-            fill = cluster)) +
-   geom_density(alpha = 0.4) +
-   labs(title = "Recency by cluster",
-        x = "# of days since customers last purchase")
-```
+### Logistic Regression
 
-The number of days since the customers last purchase doesn't seem to be a significant differentiating factor between clusters.
+Predicting which customers respond to promo
 
-```{r}
-ggplot(data, 
-        aes(x = Age, 
-            fill = cluster)) +
-   geom_density(alpha = 0.4) +
-   labs(title = "Age distribution by cluster")
-```
+### Random Forest
 
-Cluster 4 seems to consist of a younger population of customers.
+Predicting which customers respond to promo
 
-```{r}
-# calculate the mean age for each cluster
-mean_age <- data %>%
-  group_by(cluster) %>%
-  summarize(mean(Age))
-mean_age
-```
+### Discussion of our best-fitting model
 
-Let's take a look at the education levels of each cluster:
-
-```{r}
-ggplot(data,
-       aes(x = cluster, 
-           fill = as.character(Education))) + 
-  geom_bar(position = position_dodge(preserve = "single")) + 
-  scale_fill_discrete(name = "Education Level",
-                      label = c('Undergraduate', 'Graduate', 'Postgrad'))
-```
-
-It looks like cluster 1 consists of customers were are highly educated while cluster 4 consists of customers who have a relatively low level of education.
-
-```{r}
-ggplot(data,
-       aes(x = cluster, 
-           fill = as.character(Marital_Status))) + 
-  geom_bar(position = position_dodge(preserve = "single")) + 
-  scale_fill_discrete(name = "Marital Status",
-                      label = c('Single', 'Married'))
-```
-
-It doesn't look like there is much differentiation in marital status between the clusters. However, cluster 3 seems to contain a lesser proportion of customers who are married.
-
-Let's see if number of children is significant:
-
-```{r}
-ggplot(data,
-       aes(x = cluster, 
-           fill = as.character(Children))) + 
-  geom_bar(position = position_dodge(preserve = "single")) + 
-  scale_fill_discrete(name = "# of Children")
-```
-
-It looks like cluster 1 contains customers who have more children while cluster 3 contains customers who don't have many children.
-
-Now, let's inspect the total number of accepted promotions per cluster:
-
-```{r}
-ggplot(data,
-       aes(x = cluster, 
-           fill = as.character(TotalAcceptedCmp))) + 
-  geom_bar(position = position_dodge(preserve = "single")) + 
-  scale_fill_discrete(name = "Total Accepted Promos")
-```
-
-Although the number of accepted promotions was underwhelming overall, it seems that cluster 3 contains most of the customers who accepted promotions.
-
-### Bivariate Visualizations for Cluster Analysis
-
-Now, let's look at some **bivariate plots** to give us information about the clusters we formed.
-
-Let's look at the cluster distribution on a income vs total spending scatter plot:
-
-```{r}
-p <- ggplot(data, aes(x = Income,
-                      y = Total_Spending, colour = cluster)) +
-  geom_point(size = 1,
-             alpha = .7) + 
-  labs(x = "Income",
-       y = "Total Spending",
-       title = "Income vs Total Spending")
-
-ggMarginal(p, data, x = Income, y = Total_Spending,
-           type = "density", groupColour = TRUE, groupFill = TRUE)
-```
-
-```{r}
-# summarizing customer attributes in each cluster
-data_cop %>% group_by(segment) %>% 
-  summarise(Min_Age=min(Age),
-            Work_Experience=mean(Work_Experience),
-            Family_Size=mean(Family_Size),
-            Graduated=getmode(Graduated),
-            Gender=getmode(Gender),
-            Married=getmode(Ever_Married),
-            Profession=getmode(Profession),
-            Spend=getmode(Spending_Score))
-```
+Compare logistic regression vs random forest
