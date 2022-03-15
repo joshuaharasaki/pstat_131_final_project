@@ -22,6 +22,11 @@ head(data)  # print first 5 rows of data
 ```
 
 ```{r}
+data$Marital_Status <- as.factor(data$Marital_Status)
+head(data)
+```
+
+```{r}
 # create column telling us whether customer responded to any  
 data$AcceptedCmp <- as.factor(ifelse(data$TotalAcceptedCmp > 0, 1, 0))
 table(data$AcceptedCmp)
@@ -30,21 +35,84 @@ table(data$AcceptedCmp)
 ```{r}
 qplot(AcceptedCmp, Total_Spending, data = data, geom = "boxplot")
 ```
+
 ```{r}
-glm.fit = glm(AcceptedCmp ~ ., data=data, family = binomial)
+glm.fit = glm(AcceptedCmp ~ Education + Marital_Status + Income + Recency + NumWebVisitsMonth + 
+                Total_Spending + Age + Children + TotalNumPurchases, data=data, family = binomial)
 ```
 
+```{r}
+# summarize the logistic regression model
+summary(glm.fit)
+```
 
+```{r}
+prob.training = predict(glm.fit, type = "response")
+```
 
+```{r}
+pred_data = data %>% mutate(predAccept = as.factor(ifelse(prob.training <= 0.5, "No", "Yes")))
+table(pred = pred_data$predAccept, true = pred_data$AcceptedCmp)
+```
 
+#### Interpreting Coefficients
 
+-   From the summary of the fitted logistic regression model, we found that the variables Marital_Status, Income, Recency, NumWebVisitsMonth, Total_Spending, Children, and TotalNumPurchases are statistically significant.
 
+**Holding all other variables fixed...**
 
+-   For every dollar increase in salary, the log odds of accepting a promotion increases by 0.00001428.
 
+-   The indicator function of "Married" has a regression coefficient -0.2928, meaning that a customer being married versus being single changes the log odds of accepting a promotion by -0.2928. Since exp(-.2928) = 0.74617, we can say the odds of accepting a promotion for a married customer is 0.74617 times greater than the odds of accepting a promotion for a single customer. In simplest terms, a customer being married indicates that there is a slightly less probability that that customer will accept a promotion offer.
 
+-   For every one unit increase in recency, the log odds of accepting a promotion decreases by 0.0105.
 
+-   For every one unit increases in the number of website visits in the last month, the log odds of accepting a promotion increases by 0.2584.
 
+-   For every one unit increases in children, the log odds of accepting a promotion decreases by 0.2553.
 
+-   For every one unit increase in the total number of purchases, the log odds of accepting a promotion decreases by 0.0365.
 
+#### Findings from evaluating the coefficients of the logisitic regression model
 
+From our exploratory data analysis, we found that total spending and total number of purchases are highly positively correlated. So, it was interesting to find that total spending has a positive correlation with a customer accepting a promotion, but total number of purchases has a negative correlation with a customer accepting a promotion.
 
+Let's group customers who accepted a promotion and those who did not, to see how total number of purchases and total spending relates:
+
+```{r}
+# calculate the mean total number of purchases amoungst customers
+plot_mean <- data %>%
+  group_by(AcceptedCmp) %>%
+  summarize(mean_num_purchases = round(mean(TotalNumPurchases), digits = 3))
+
+# plot mean total number of purchases
+ggplot(plot_mean, 
+       aes(x = factor(AcceptedCmp,
+                      labels = c("Did not accept", "Accepted")),
+           y = mean_num_purchases)) +
+  geom_bar(stat = "identity", fill = "cornflowerblue") +
+  geom_text(aes(label = mean_num_purchases, vjust = -0.25)) +
+  labs(x = "Customer Response", y = "Mean Total Number of Purchases") 
+```
+
+```{r}
+# calculate the mean total spending amoungst customers
+plot_mean <- data %>%
+  group_by(AcceptedCmp) %>%
+  summarize(mean_total_spending = round(mean(Total_Spending), digits = 3))
+
+# plot mean total number of purchases
+ggplot(plot_mean, 
+       aes(x = factor(AcceptedCmp,
+                      labels = c("Did not accept", "Accepted")),
+           y = mean_total_spending)) +
+  geom_bar(stat = "identity", fill = "cornflowerblue") +
+  geom_text(aes(label = mean_total_spending, vjust = -0.25)) +
+  labs(x = "Customer Response", y = "Mean Total Spending") 
+```
+
+```{r}
+mean(data$Total_Spending)
+```
+
+As you can see in the chart, we see that the mean of the total number of purchases is higher for customers who don't accept campaigns. This may be for a variety of reasons, but we hypothesize that the promotions may be for more expensive items, thus explaining why although a customer spending more
