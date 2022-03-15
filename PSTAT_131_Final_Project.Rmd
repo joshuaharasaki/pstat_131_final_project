@@ -708,7 +708,107 @@ Ans: The test error for boosting is 0.167.
 
 ### Random Forest
 
-KATIE
+#### Create Dummy variable
+
+Create binary dummy variables (0 and 1) for three categorical variables, Education, Marital_Status, and AcceptedCmp. Then remove the original columns.
+
+```{r}
+library( fastDummies )
+df1 <- dummy_cols(data,
+                  select_columns = c("Education", "Marital_Status","AcceptedCmp"),
+                           remove_first_dummy = TRUE,
+                           remove_selected_columns = TRUE )
+```
+
+#### Splitting Data into training and test sets
+
+We will take our dataset and divided it into two subsets: the train and test subsets. The training set will be used to fit the machine learning model while the testing/validation set will be used to evaluate the fit of the machine learning model.
+
+In this random forest model, we split our data in to 70% train and 30% validation sets.
+
+```{r}
+df1_subset <- df1[ , -c(5:9)]
+
+set.seed(123)
+train.rows <- sample(rownames( df1_subset), nrow( df1_subset )*0.7)
+train.data <- df1_subset[train.rows , ]
+test.rows <- setdiff(rownames( df1_subset), train.rows)
+test.data <- df1_subset[test.rows , ]
+```
+
+#### Building the random forest model
+
+```{r}
+library(randomForest)
+set.seed(123)
+df1_rf_promo <- randomForest(as.factor(TotalAcceptedCmp)  ~ ., data=train.data, ntree=500,mtry = 4)
+
+df1_rf_promo
+```
+
+From the training data to fit the random forest model, we see that by calling "df1_rf_promo" that the the Out of Bag (OOB) estimate of error rate is 10.68% for 500 trees. The OOB error is the mean prediction error on each of the training samples.
+
+The confusion matrix is a good way of assessing the performance of the classifier when it is presented with new data.
+
+```{r}
+plot(df1_rf_promo)
+```
+
+From the plot, out of 500 trees, we see that improvement steadies out as the number of trees increase. We see from the plot that the error is the lowest around less than 100 trees or at 100 trees.
+
+```{r}
+importance(df1_rf_promo)
+```
+
+```{r}
+varImpPlot(df1_rf_promo, sort=T, main="Variable Importance for df1_rf_promo")
+```
+
+From the importance() function and varImpPlot(), we are able to both quantify and visualize the importance of each variable. From both the table and plot, we see that the most significant variables in determining a customer's response to a promotion are "AcceptedCmp_1", "NumDaysEnrolled", "Income", "Recency", and "total_spent".
+
+From this information, this indicates that the most significant factors in determining a customers' response to a promotion are if that customer has responded to or accepted promotions before, the number of days they've enrolled with the company, their income, the number of days since their last purchase, and the amount they spend.
+
+```{r}
+varImpPlot(df1_rf_promo, sort=T, main="Top 5 Variables' Importance for df1_rf_promo", n.var=5)
+```
+
+Here, we can visualize with better ease of the top five variables' importance in determining a customer's response to a promotion or campaign.
+
+### Cross-Validation
+
+We will perform cross-validation by examining the validation error rate and fine tuning one of the parameters for the random forest model (mtry).
+
+First, we will find the test set error rate.
+
+```{r}
+set.seed(123)
+yhat.rf = predict (df1_rf_promo, newdata = test.data)
+# Confusion matrix
+rf.err = table(pred = yhat.rf, truth = test.data$TotalAcceptedCmp)
+test.rf.err = 1 - sum(diag(rf.err))/sum(rf.err)
+test.rf.err
+```
+
+The test set error rate is 0.09803922. This indicates that this model's accuracy is a great improvement.
+
+#### Fine Tuning by finding the best mtry
+
+Two parameters that are important in the random forest algorithm are the number of trees used in the forest, and the number of random variables used in each tree.
+
+Here, we see if we can find the best mtry for the random forest model.
+
+One of the biggest factors that has the biggest effect on the final accuracy of the model is the mtry. The mtry is the number of variables randomly sampled as candidates at each split. As we see from the figure below, as the number of predictors sampled increases, the error goes down. However, having a high mtry can also make the model prone to overfitting.
+
+```{r}
+mtry <- tuneRF(train.data[-20], train.data$TotalAcceptedCmp, ntreeTry=500, 
+               stepFactor=1.5, improve=0.01, trace=TRUE, plot=TRUE)
+```
+
+**The total amount spent on products** are very highly correlated with whether the customer responded to the marketing campaign.
+
+In the end, we find that **Income and Total Amount Spent are very correlated**. Customers who earn more spend more.
+
+**Customers who have recently purchased something aremore likely to respond** to the marketing campaign. This makes senses because when a customer has more recent purchases they have more of a probable pattern of shopping at the store.
 
 ### Discussion of our best-fitting model
 
